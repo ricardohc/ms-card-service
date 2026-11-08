@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AccountValidationClient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ms-card-service</a> &gt; <a href="index.source.html" class="el_package">com.banking.card.client</a> &gt; <span class="el_source">AccountValidationClient.java</span></div><h1>AccountValidationClient.java</h1><pre class="source lang-java linenums">package com.banking.card.client;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+import java.util.UUID;
+
+/** Validates linked account existence and ACTIVE status against ms-account-service. */
+<span class="fc" id="L13">@Slf4j</span>
+@Component
+@RequiredArgsConstructor
+public class AccountValidationClient {
+
+    private final WebClient.Builder webClientBuilder;
+
+    @Value(&quot;${external.services.account.url:http://ms-account-service}&quot;)
+    private String accountServiceUrl;
+
+    /** Returns true when the account exists and is ACTIVE. */
+    public Mono&lt;Boolean&gt; accountActive(UUID accountId) {
+<span class="nc" id="L25">        return webClientBuilder.build()</span>
+<span class="nc" id="L26">                .get()</span>
+<span class="nc" id="L27">                .uri(accountServiceUrl + &quot;/api/v1/accounts/{accountId}&quot;, accountId)</span>
+<span class="nc" id="L28">                .header(&quot;X-Correlation-ID&quot;, UUID.randomUUID().toString())</span>
+<span class="nc" id="L29">                .header(&quot;X-Channel-ID&quot;, &quot;MS-CARD-SERVICE&quot;)</span>
+<span class="nc" id="L30">                .header(&quot;Accept&quot;, &quot;application/json&quot;)</span>
+<span class="nc" id="L31">                .retrieve()</span>
+<span class="nc" id="L32">                .bodyToMono(String.class)</span>
+<span class="nc bnc" id="L33" title="All 4 branches missed.">                .map(body -&gt; body != null &amp;&amp; body.contains(&quot;ACTIVE&quot;))</span>
+<span class="nc" id="L34">                .onErrorResume(ex -&gt; {</span>
+<span class="nc" id="L35">                    log.warn(&quot;Account validation failed for {}: {}&quot;, accountId, ex.getMessage());</span>
+<span class="nc" id="L36">                    return Mono.just(false);</span>
+                });
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

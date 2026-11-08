@@ -45,7 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-06T11:39:44.157711600-05:00[America/Lima]", comments = "Generator version: 7.6.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-08T11:44:42.467727-05:00[America/Lima]", comments = "Generator version: 7.6.0")
 @Validated
 @Tag(name = "Card", description = "Operaciones de gestión de tarjetas de crédito y débito")
 public interface CardApi {

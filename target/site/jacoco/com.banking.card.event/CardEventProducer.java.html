@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CardEventProducer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ms-card-service</a> &gt; <a href="index.source.html" class="el_package">com.banking.card.event</a> &gt; <span class="el_source">CardEventProducer.java</span></div><h1>CardEventProducer.java</h1><pre class="source lang-java linenums">package com.banking.card.event;
+
+import com.banking.card.document.CardDocument;
+import com.banking.card.document.MovementDocument;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.reactive.ReactiveKafkaProducerTemplate;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
+
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Produces domain events on topic banking.card.events.v1.
+ * Events: CardIssued, CardUpdated, CardCancelled, CardMovementRegistered.
+ */
+<span class="fc" id="L18">@Slf4j</span>
+@Component
+@RequiredArgsConstructor
+public class CardEventProducer {
+
+    public static final String TOPIC = &quot;banking.card.events.v1&quot;;
+
+    private final ReactiveKafkaProducerTemplate&lt;String, Object&gt; kafkaTemplate;
+
+    public Mono&lt;Void&gt; cardIssued(CardDocument card) {
+<span class="nc" id="L28">        return send(&quot;CardIssued&quot;, card.getId(), baseEvent(card, &quot;CardIssued&quot;));</span>
+    }
+
+    public Mono&lt;Void&gt; cardUpdated(CardDocument card) {
+<span class="nc" id="L32">        return send(&quot;CardUpdated&quot;, card.getId(), baseEvent(card, &quot;CardUpdated&quot;));</span>
+    }
+
+    public Mono&lt;Void&gt; cardCancelled(CardDocument card) {
+<span class="nc" id="L36">        return send(&quot;CardCancelled&quot;, card.getId(), baseEvent(card, &quot;CardCancelled&quot;));</span>
+    }
+
+    public Mono&lt;Void&gt; movementRegistered(MovementDocument movement) {
+<span class="nc" id="L40">        Map&lt;String, Object&gt; event = Map.of(</span>
+                &quot;eventType&quot;, &quot;CardMovementRegistered&quot;,
+<span class="nc" id="L42">                &quot;cardId&quot;, String.valueOf(movement.getCardId()),</span>
+<span class="nc" id="L43">                &quot;movementId&quot;, String.valueOf(movement.getId()),</span>
+<span class="nc" id="L44">                &quot;type&quot;, movement.getType(),</span>
+<span class="nc" id="L45">                &quot;amount&quot;, movement.getAmount().toPlainString(),</span>
+<span class="nc" id="L46">                &quot;timestamp&quot;, movement.getTimestamp().toString());</span>
+<span class="nc" id="L47">        return send(&quot;CardMovementRegistered&quot;, movement.getCardId(), event);</span>
+    }
+
+    private Map&lt;String, Object&gt; baseEvent(CardDocument card, String eventType) {
+<span class="nc" id="L51">        return Map.of(</span>
+                &quot;eventType&quot;, eventType,
+<span class="nc" id="L53">                &quot;cardId&quot;, String.valueOf(card.getId()),</span>
+<span class="nc" id="L54">                &quot;customerId&quot;, String.valueOf(card.getCustomerId()),</span>
+<span class="nc" id="L55">                &quot;type&quot;, card.getType(),</span>
+<span class="nc" id="L56">                &quot;status&quot;, card.getStatus());</span>
+    }
+
+    private Mono&lt;Void&gt; send(String eventType, UUID key, Object payload) {
+<span class="nc" id="L60">        return kafkaTemplate.send(TOPIC, String.valueOf(key), payload)</span>
+<span class="nc" id="L61">                .doOnSuccess(result -&gt; log.info(&quot;Event {} sent for key {}&quot;, eventType, key))</span>
+<span class="nc" id="L62">                .onErrorResume(ex -&gt; {</span>
+                    // Event publishing must not break the main flow; log and continue.
+<span class="nc" id="L64">                    log.error(&quot;Failed to send event {} for key {}: {}&quot;, eventType, key, ex.getMessage());</span>
+<span class="nc" id="L65">                    return Mono.empty();</span>
+                })
+<span class="nc" id="L67">                .then();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

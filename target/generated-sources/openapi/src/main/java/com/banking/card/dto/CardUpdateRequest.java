@@ -20,7 +20,7 @@ import jakarta.annotation.Generated;
  * CardUpdateRequest
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-06T11:39:44.157711600-05:00[America/Lima]", comments = "Generator version: 7.6.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-08T11:44:42.467727-05:00[America/Lima]", comments = "Generator version: 7.6.0")
 public class CardUpdateRequest {
 
   private CardStatus status;

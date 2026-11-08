@@ -4,8 +4,10 @@ import java.net.URI;
 import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.UUID;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.openapitools.jackson.nullable.JsonNullable;
 import java.time.OffsetDateTime;
 import jakarta.validation.Valid;
@@ -20,45 +22,12 @@ import jakarta.annotation.Generated;
  * DebitCardCreateRequest
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-06T11:39:44.157711600-05:00[America/Lima]", comments = "Generator version: 7.6.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-08T11:44:42.467727-05:00[America/Lima]", comments = "Generator version: 7.6.0")
 public class DebitCardCreateRequest implements CardCreateRequest {
 
   private UUID customerId;
 
-  /**
-   * Gets or Sets type
-   */
-  public enum TypeEnum {
-    DEBIT("DEBIT");
-
-    private String value;
-
-    TypeEnum(String value) {
-      this.value = value;
-    }
-
-    @JsonValue
-    public String getValue() {
-      return value;
-    }
-
-    @Override
-    public String toString() {
-      return String.valueOf(value);
-    }
-
-    @JsonCreator
-    public static TypeEnum fromValue(String value) {
-      for (TypeEnum b : TypeEnum.values()) {
-        if (b.value.equals(value)) {
-          return b;
-        }
-      }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
-    }
-  }
-
-  private TypeEnum type;
+  private String type;
 
   private UUID linkedAccountId;
 
@@ -69,7 +38,7 @@ public class DebitCardCreateRequest implements CardCreateRequest {
   /**
    * Constructor with only required parameters
    */
-  public DebitCardCreateRequest(UUID customerId, TypeEnum type, UUID linkedAccountId) {
+  public DebitCardCreateRequest(UUID customerId, String type, UUID linkedAccountId) {
     this.customerId = customerId;
     this.type = type;
     this.linkedAccountId = linkedAccountId;
@@ -95,7 +64,7 @@ public class DebitCardCreateRequest implements CardCreateRequest {
     this.customerId = customerId;
   }
 
-  public DebitCardCreateRequest type(TypeEnum type) {
+  public DebitCardCreateRequest type(String type) {
     this.type = type;
     return this;
   }
@@ -107,11 +76,11 @@ public class DebitCardCreateRequest implements CardCreateRequest {
   @NotNull 
   @Schema(name = "type", requiredMode = Schema.RequiredMode.REQUIRED)
   @JsonProperty("type")
-  public TypeEnum getType() {
+  public String getType() {
     return type;
   }
 
-  public void setType(TypeEnum type) {
+  public void setType(String type) {
     this.type = type;
   }
 

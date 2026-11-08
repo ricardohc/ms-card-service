@@ -18,7 +18,7 @@ import jakarta.annotation.Generated;
  * ConsumptionRequest
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-06T11:39:44.157711600-05:00[America/Lima]", comments = "Generator version: 7.6.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-08T11:44:42.467727-05:00[America/Lima]", comments = "Generator version: 7.6.0")
 public class ConsumptionRequest {
 
   private String amount;
@@ -49,7 +49,7 @@ public class ConsumptionRequest {
    * Get amount
    * @return amount
   */
-  @NotNull @Pattern(regexp = "^(?!0+(\\.0+)?$)[0-9]+(\\.[0-9]{1,2})?$") 
+  @NotNull @Pattern(regexp = "^[0-9]+(\\.[0-9]{1,2})?$") 
   @Schema(name = "amount", requiredMode = Schema.RequiredMode.REQUIRED)
   @JsonProperty("amount")
   public String getAmount() {

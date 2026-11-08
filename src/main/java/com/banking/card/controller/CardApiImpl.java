@@ -1,67 +1,55 @@
 package com.banking.card.controller;
 
 import com.banking.card.api.CardApi;
-import com.banking.card.dto.*;
+import com.banking.card.dto.BalanceResponse;
+import com.banking.card.dto.CardCreateRequest;
+import com.banking.card.dto.CardPage;
+import com.banking.card.dto.CardResponse;
+import com.banking.card.dto.CardUpdateRequest;
+import com.banking.card.dto.ConsumptionRequest;
+import com.banking.card.dto.EligibilityResponse;
+import com.banking.card.dto.MovementListResponse;
+import com.banking.card.dto.OperationAcceptedResponse;
+import com.banking.card.service.CardService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 
+/** Thin adapter: generated CardApi -> CardService. No business logic here. */
 @RestController
+@RequiredArgsConstructor
 public class CardApiImpl implements CardApi {
+
+    private final CardService cardService;
 
     @Override
     public Mono<ResponseEntity<CardPage>> findAllCards(
             String xCorrelationID, String xChannelID, Integer page, Integer size,
             ServerWebExchange exchange) {
-        CardPage p = new CardPage();
-        p.setContent(List.of());
-        p.setPage(page);
-        p.setSize(size);
-        p.setTotalElements(0);
-        return Mono.just(ResponseEntity.ok(p));
+        return cardService.findAllCards(page, size)
+                .map(ResponseEntity::ok);
     }
 
     @Override
     public Mono<ResponseEntity<CardResponse>> createCard(
             String xCorrelationID, String xChannelID, UUID xTransactionID,
             Mono<CardCreateRequest> cardCreateRequest, ServerWebExchange exchange) {
-        return cardCreateRequest.map(req -> {
-            CardResponse r = new CardResponse();
-            r.setId(UUID.randomUUID());
-            r.setStatus(CardStatus.ACTIVE);
-            r.setMaskedPan("**** **** **** 1234");
-            r.setExpirationDate(LocalDate.now().plusYears(5));
-            /*
-            if (req.getActualInstance() instanceof CreditCardCreateRequest credit) {
-                r.setCustomerId(credit.getCustomerId());
-                r.setType(CardType.CREDIT);
-                r.setCreditLimit(credit.getCreditLimit());
-                r.setAvailableBalance(credit.getCreditLimit());
-            } else if (req.getActualInstance() instanceof DebitCardCreateRequest debit) {
-                r.setCustomerId(debit.getCustomerId());
-                r.setType(CardType.DEBIT);
-                r.setLinkedAccountId(debit.getLinkedAccountId());
-            }*/
-            return ResponseEntity.status(HttpStatus.CREATED).body(r);
-        });
+        return cardCreateRequest
+                .flatMap(request -> cardService.createCard(request, xTransactionID))
+                .map(response -> ResponseEntity.status(HttpStatus.CREATED).body(response));
     }
 
     @Override
     public Mono<ResponseEntity<CardResponse>> findCardById(
             UUID cardId, String xCorrelationID, String xChannelID,
             ServerWebExchange exchange) {
-        CardResponse r = new CardResponse();
-        r.setId(cardId);
-        r.setStatus(CardStatus.ACTIVE);
-        r.setMaskedPan("**** **** **** 1234");
-        r.setExpirationDate(LocalDate.now().plusYears(5));
-        return Mono.just(ResponseEntity.ok(r));
+        return cardService.findCardById(cardId)
+                .map(ResponseEntity::ok);
     }
 
     @Override
@@ -69,21 +57,17 @@ public class CardApiImpl implements CardApi {
             UUID cardId, String xCorrelationID, String xChannelID,
             UUID xTransactionID, Mono<CardUpdateRequest> cardUpdateRequest,
             ServerWebExchange exchange) {
-        return cardUpdateRequest.map(req -> {
-            CardResponse r = new CardResponse();
-            r.setId(cardId);
-            r.setStatus(req.getStatus());
-            r.setMaskedPan("**** **** **** 1234");
-            r.setExpirationDate(LocalDate.now().plusYears(5));
-            return ResponseEntity.ok(r);
-        });
+        return cardUpdateRequest
+                .flatMap(request -> cardService.updateCard(cardId, request, xTransactionID))
+                .map(ResponseEntity::ok);
     }
 
     @Override
     public Mono<ResponseEntity<Void>> deactivateCard(
             UUID cardId, String xCorrelationID, String xChannelID,
             UUID xTransactionID, ServerWebExchange exchange) {
-        return Mono.just(ResponseEntity.noContent().build());
+        return cardService.deactivateCard(cardId, xTransactionID)
+                .thenReturn(ResponseEntity.<Void>noContent().build());
     }
 
     @Override
@@ -91,41 +75,32 @@ public class CardApiImpl implements CardApi {
             UUID cardId, String xCorrelationID, String xChannelID,
             UUID xTransactionID, Mono<ConsumptionRequest> consumptionRequest,
             ServerWebExchange exchange) {
-        return consumptionRequest.map(req -> {
-            OperationAcceptedResponse r = new OperationAcceptedResponse();
-            r.setOperationId(UUID.randomUUID());
-            r.setStatus("ACCEPTED");
-            return ResponseEntity.status(HttpStatus.ACCEPTED).body(r);
-        });
+        return consumptionRequest
+                .flatMap(request -> cardService.createConsumption(cardId, request, xTransactionID))
+                .map(response -> ResponseEntity.status(HttpStatus.ACCEPTED).body(response));
     }
 
     @Override
     public Mono<ResponseEntity<BalanceResponse>> findCardBalance(
             UUID cardId, String xCorrelationID, String xChannelID,
             ServerWebExchange exchange) {
-        BalanceResponse r = new BalanceResponse();
-        r.setCardId(cardId);
-        r.setAvailableBalance("5000.00");
-        r.setCurrency("PEN");
-        return Mono.just(ResponseEntity.ok(r));
+        return cardService.findCardBalance(cardId)
+                .map(ResponseEntity::ok);
     }
 
     @Override
     public Mono<ResponseEntity<MovementListResponse>> findLastMovements(
             UUID cardId, String xCorrelationID, String xChannelID,
             ServerWebExchange exchange) {
-        MovementListResponse r = new MovementListResponse();
-        r.setMovements(List.of());
-        return Mono.just(ResponseEntity.ok(r));
+        return cardService.findLastMovements(cardId)
+                .map(ResponseEntity::ok);
     }
 
     @Override
     public Mono<ResponseEntity<EligibilityResponse>> checkCardEligibility(
             UUID customerId, String xCorrelationID, String xChannelID,
             ServerWebExchange exchange) {
-        EligibilityResponse r = new EligibilityResponse();
-        r.setCustomerId(customerId);
-        r.setHasCreditCard(true);
-        return Mono.just(ResponseEntity.ok(r));
+        return cardService.checkCardEligibility(customerId)
+                .map(ResponseEntity::ok);
     }
 }

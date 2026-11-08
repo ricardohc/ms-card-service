@@ -221,19 +221,24 @@ components:
       oneOf:
         - $ref: '#/components/schemas/CreditCardCreateRequest'
         - $ref: '#/components/schemas/DebitCardCreateRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          CREDIT: '#/components/schemas/CreditCardCreateRequest'
+          DEBIT: '#/components/schemas/DebitCardCreateRequest'
     CreditCardCreateRequest:
       type: object
       required: [customerId, type, creditLimit]
       properties:
         customerId: { type: string, format: uuid }
-        type: { type: string, enum: [CREDIT] }
-        creditLimit: { type: string, pattern: '^(?!0+(\.0+)?$)[0-9]+(\.[0-9]{1,2})?$' }
+        type: { type: string }
+        creditLimit: { type: string, pattern: '^[0-9]+(\.[0-9]{1,2})?$' }
     DebitCardCreateRequest:
       type: object
       required: [customerId, type, linkedAccountId]
       properties:
         customerId: { type: string, format: uuid }
-        type: { type: string, enum: [DEBIT] }
+        type: { type: string }
         linkedAccountId: { type: string, format: uuid }
     CardUpdateRequest:
       type: object
@@ -243,7 +248,7 @@ components:
       type: object
       required: [amount, currency, merchant]
       properties:
-        amount: { type: string, pattern: '^(?!0+(\.0+)?$)[0-9]+(\.[0-9]{1,2})?$' }
+        amount: { type: string, pattern: '^[0-9]+(\.[0-9]{1,2})?$' }
         currency: { type: string, pattern: '^[A-Z]{3}$' }
         merchant: { type: string }
     CardResponse:

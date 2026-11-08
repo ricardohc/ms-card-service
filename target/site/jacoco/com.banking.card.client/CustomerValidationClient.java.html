@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="es"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CustomerValidationClient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ms-card-service</a> &gt; <a href="index.source.html" class="el_package">com.banking.card.client</a> &gt; <span class="el_source">CustomerValidationClient.java</span></div><h1>CustomerValidationClient.java</h1><pre class="source lang-java linenums">package com.banking.card.client;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+import java.util.UUID;
+
+/** Validates customer existence against ms-customer-service via its HTTP API. */
+<span class="fc" id="L13">@Slf4j</span>
+@Component
+@RequiredArgsConstructor
+public class CustomerValidationClient {
+
+    private final WebClient.Builder webClientBuilder;
+
+    @Value(&quot;${external.services.customer.url:http://ms-customer-service}&quot;)
+    private String customerServiceUrl;
+
+    /** Returns true when the customer exists in ms-customer-service. */
+    public Mono&lt;Boolean&gt; customerExists(UUID customerId) {
+<span class="nc" id="L25">        return webClientBuilder.build()</span>
+<span class="nc" id="L26">                .get()</span>
+<span class="nc" id="L27">                .uri(customerServiceUrl + &quot;/api/v1/customers/{customerId}&quot;, customerId)</span>
+<span class="nc" id="L28">                .header(&quot;X-Correlation-ID&quot;, UUID.randomUUID().toString())</span>
+<span class="nc" id="L29">                .header(&quot;X-Channel-ID&quot;, &quot;MS-CARD-SERVICE&quot;)</span>
+<span class="nc" id="L30">                .header(&quot;Accept&quot;, &quot;application/json&quot;)</span>
+<span class="nc" id="L31">                .retrieve()</span>
+<span class="nc" id="L32">                .toBodilessEntity()</span>
+<span class="nc" id="L33">                .map(response -&gt; true)</span>
+<span class="nc" id="L34">                .onErrorResume(ex -&gt; {</span>
+<span class="nc" id="L35">                    log.warn(&quot;Customer validation failed for {}: {}&quot;, customerId, ex.getMessage());</span>
+<span class="nc" id="L36">                    return Mono.just(false);</span>
+                });
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
