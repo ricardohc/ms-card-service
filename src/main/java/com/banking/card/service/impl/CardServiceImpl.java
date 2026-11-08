@@ -24,6 +24,7 @@ import com.banking.card.exception.DuplicateCardException;
 import com.banking.card.exception.InsufficientCreditException;
 import com.banking.card.exception.InvalidCardStateException;
 import com.banking.card.exception.InvalidCardTypeException;
+import com.banking.card.exception.InvalidRequestException; // <-- IMPORTANTE
 import com.banking.card.mapper.CardMapper;
 import com.banking.card.repository.CardAtomicOperations;
 import com.banking.card.repository.CardRepository;
@@ -197,36 +198,45 @@ public class CardServiceImpl implements CardService {
 
     @Override
     public Mono<OperationAcceptedResponse> createConsumption(UUID cardId, ConsumptionRequest request, UUID transactionId) {
-        BigDecimal amount = new BigDecimal(request.getAmount());
-        return getActiveCard(cardId)
-                .flatMap(card -> {
-                    // 1. Validar TIPO: Si es débito, rechazar rápido con 422
-                    if (!TYPE_CREDIT.equals(card.getType())) {
-                        return Mono.error(new InvalidCardTypeException(
-                                "Consumptions apply only to CREDIT cards"));
-                    }
-                    // 2. Validar ESTADO: Si no está activa, rechazar con 422
-                    if (!STATUS_ACTIVE.equals(card.getStatus())) {
-                        return Mono.error(new InvalidCardStateException("Card is not ACTIVE"));
-                    }
-                    // 3. Validar SALDO: Si el monto es mayor, rechazar con 422
-                    if (card.getAvailableBalance() == null || amount.compareTo(card.getAvailableBalance()) > 0) {
-                        return Mono.error(new InsufficientCreditException(
-                                "Amount exceeds available credit line"));
-                    }
-                    // 4. Procesar atómicamente y registrar movimiento
-                    return atomic.decrementAvailableBalance(cardId, amount)
-                            .flatMap(updated -> updated
-                                    ? recordMovement(cardId, "CONSUMPTION", amount, request)
-                                    : Mono.error(new InsufficientCreditException(
-                                    "Amount exceeds available credit line")));
-                })
-                .map(movementId -> {
-                    OperationAcceptedResponse response = new OperationAcceptedResponse();
-                    response.setOperationId(movementId);
-                    response.setStatus("ACCEPTED");
-                    return response;
-                });
+        return Mono.defer(() -> {
+            BigDecimal amount = new BigDecimal(request.getAmount());
+
+            // 1. VALIDACIÓN TEMPRANA: El monto debe ser mayor a cero (Evita que llegue a Mongo o Kafka)
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                return Mono.error(new InvalidRequestException(
+                        "The transaction amount must be greater than zero"));
+            }
+
+            return getActiveCard(cardId)
+                    .flatMap(card -> {
+                        // 2. Validar TIPO: Si es débito, rechazar rápido con 422
+                        if (!TYPE_CREDIT.equals(card.getType())) {
+                            return Mono.error(new InvalidCardTypeException(
+                                    "Consumptions apply only to CREDIT cards"));
+                        }
+                        // 3. Validar ESTADO: Si no está activa, rechazar con 422
+                        if (!STATUS_ACTIVE.equals(card.getStatus())) {
+                            return Mono.error(new InvalidCardStateException("Card is not ACTIVE"));
+                        }
+                        // 4. Validar SALDO: Si el monto es mayor, rechazar con 422
+                        if (card.getAvailableBalance() == null || amount.compareTo(card.getAvailableBalance()) > 0) {
+                            return Mono.error(new InsufficientCreditException(
+                                    "Amount exceeds available credit line"));
+                        }
+                        // 5. Procesar atómicamente y registrar movimiento
+                        return atomic.decrementAvailableBalance(cardId, amount)
+                                .flatMap(updated -> updated
+                                        ? recordMovement(cardId, "CONSUMPTION", amount, request)
+                                        : Mono.error(new InsufficientCreditException(
+                                        "Amount exceeds available credit line")));
+                    })
+                    .map(movementId -> {
+                        OperationAcceptedResponse response = new OperationAcceptedResponse();
+                        response.setOperationId(movementId);
+                        response.setStatus("ACCEPTED");
+                        return response;
+                    });
+        });
     }
 
     private Mono<UUID> recordMovement(UUID cardId, String type, BigDecimal amount, ConsumptionRequest request) {

@@ -19,7 +19,7 @@ import jakarta.annotation.Generated;
  * EligibilityResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-08T13:11:23.161203400-05:00[America/Lima]", comments = "Generator version: 7.6.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-08T13:29:33.083421400-05:00[America/Lima]", comments = "Generator version: 7.6.0")
 public class EligibilityResponse {
 
   private UUID customerId;
