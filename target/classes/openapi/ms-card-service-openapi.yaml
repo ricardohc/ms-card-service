@@ -248,7 +248,9 @@ components:
       type: object
       required: [amount, currency, merchant]
       properties:
-        amount: { type: string, pattern: '^[0-9]+(\.[0-9]{1,2})?$' }
+        # El lookahead negativo (?!0+(\.0+)?$) evita que "0", "0.0" o "0.00" pasen la validación,
+        # forzando al framework a devolver un 400 Bad Request (Escenario 13).
+        amount: { type: string, pattern: '^(?!0+(\.0+)?$)[0-9]+(\.[0-9]{1,2})?$' }
         currency: { type: string, pattern: '^[A-Z]{3}$' }
         merchant: { type: string }
     CardResponse:

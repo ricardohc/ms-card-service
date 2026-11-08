@@ -24,7 +24,7 @@ import jakarta.annotation.Generated;
  * CardResponse
  */
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-08T11:44:42.467727-05:00[America/Lima]", comments = "Generator version: 7.6.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-08T13:11:23.161203400-05:00[America/Lima]", comments = "Generator version: 7.6.0")
 public class CardResponse {
 
   private UUID id;

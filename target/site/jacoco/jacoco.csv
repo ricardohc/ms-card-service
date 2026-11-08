@@ -1,5 +1,5 @@
 GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
-ms-card-service,com.banking.card.service.impl,CardServiceImpl,215,425,10,14,47,97,17,29,8,26
+ms-card-service,com.banking.card.service.impl,CardServiceImpl,209,410,10,14,46,94,17,28,8,25
 ms-card-service,com.banking.card.event,CardEventProducer,121,4,0,0,21,1,8,1,8,1
 ms-card-service,com.banking.card.config,KafkaProducerConfig,13,0,0,0,3,0,2,0,2,0
 ms-card-service,com.banking.card.config,SecurityConfig,35,0,0,0,10,0,7,0,7,0
@@ -22,7 +22,7 @@ ms-card-service,com.banking.card,CardServiceApplication,8,0,0,0,3,0,2,0,2,0
 ms-card-service,com.banking.card.client,CustomerValidationClient,60,4,0,0,12,1,3,1,3,1
 ms-card-service,com.banking.card.client,AccountValidationClient,69,4,4,0,12,1,5,1,3,1
 ms-card-service,com.banking.card.mapper,CardMapper,49,61,4,2,12,14,5,4,2,4
-ms-card-service,com.banking.card.repository,CardAtomicOperations,47,0,0,0,7,0,2,0,2,0
+ms-card-service,com.banking.card.repository,CardAtomicOperations,87,4,0,0,13,1,3,1,3,1
 ms-card-service,com.banking.card.exception,GlobalExceptionHandler,78,0,0,0,15,0,6,0,6,0
 ms-card-service,com.banking.card.exception,InvalidCardTypeException,0,6,0,0,0,2,0,1,0,1
 ms-card-service,com.banking.card.exception,DuplicateCardException,6,0,0,0,2,0,1,0,1,0

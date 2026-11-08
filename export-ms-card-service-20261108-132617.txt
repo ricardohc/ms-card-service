@@ -936,6 +936,8 @@ package com.banking.card.repository;
 
 import com.banking.card.document.CardDocument;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.bson.types.Decimal128;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -947,6 +949,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /** Mongo-specific atomic operations that cannot be expressed as derived methods. */
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class CardAtomicOperations {
@@ -956,16 +959,26 @@ public class CardAtomicOperations {
     /** Atomically decrements availableBalance only when the current balance covers the amount.
      *  Returns true when the decrement happened, false otherwise. */
     public Mono<Boolean> decrementAvailableBalance(UUID cardId, BigDecimal amount) {
+        Decimal128 delta = new Decimal128(amount.negate());
+        Decimal128 min = new Decimal128(amount);
+
         Query query = new Query(new Criteria().andOperator(
                 Criteria.where("_id").is(cardId),
-                Criteria.where("availableBalance").gte(amount)));
-        Update update = new Update().inc("availableBalance", amount.negate());
+                Criteria.where("availableBalance").gte(min)));
+
+        Update update = new Update().inc("availableBalance", delta);
+
         return mongoTemplate.findAndModify(query, update, CardDocument.class)
-                .map(updated -> true)
-                .defaultIfEmpty(false);
+                .map(updated -> {
+                    log.debug("availableBalance decremented by {} for card {}", amount, cardId);
+                    return true;
+                })
+                .defaultIfEmpty(false)
+                .doOnError(ex -> log.error(
+                        "Atomic decrement failed for card {} amount {}: {}",
+                        cardId, amount, ex.getMessage()));
     }
 }
-
 === src/main/java/com/banking/card/repository/CardRepository.java ===
 package com.banking.card.repository;
 
@@ -1154,7 +1167,6 @@ public class CardServiceImpl implements CardService {
     private Mono<CardResponse> createCreditCard(CreditCardCreateRequest credit) {
         BigDecimal limit = new BigDecimal(credit.getCreditLimit());
         if (limit.signum() <= 0) {
-            // Escenario: creditLimit = "0.00" -> 422 INVALID_CARD_OPERATION
             return Mono.error(new InvalidCardTypeException(
                     "creditLimit must be greater than 0 for CREDIT cards"));
         }
@@ -1255,35 +1267,32 @@ public class CardServiceImpl implements CardService {
         BigDecimal amount = new BigDecimal(request.getAmount());
         return getActiveCard(cardId)
                 .flatMap(card -> {
+                    // 1. Validar TIPO: Si es débito, rechazar rápido con 422
                     if (!TYPE_CREDIT.equals(card.getType())) {
                         return Mono.error(new InvalidCardTypeException(
                                 "Consumptions apply only to CREDIT cards"));
                     }
+                    // 2. Validar ESTADO: Si no está activa, rechazar con 422
                     if (!STATUS_ACTIVE.equals(card.getStatus())) {
                         return Mono.error(new InvalidCardStateException("Card is not ACTIVE"));
                     }
-                    if (amount.compareTo(card.getAvailableBalance()) > 0) {
+                    // 3. Validar SALDO: Si el monto es mayor, rechazar con 422
+                    if (card.getAvailableBalance() == null || amount.compareTo(card.getAvailableBalance()) > 0) {
                         return Mono.error(new InsufficientCreditException(
                                 "Amount exceeds available credit line"));
                     }
-                    return cardRepository.findById(card.getId())
-                            .flatMap(fresh -> {
-                                if (amount.compareTo(fresh.getAvailableBalance()) > 0) {
-                                    return Mono.error(new InsufficientCreditException(
-                                            "Amount exceeds available credit line"));
-                                }
-                                return atomic.decrementAvailableBalance(card.getId(), amount)
-                                        .flatMap(updated -> updated
-                                                ? recordMovement(card.getId(), "CONSUMPTION", amount, request)
-                                                : Mono.error(new InsufficientCreditException(
-                                                "Amount exceeds available credit line")));
-                            })
-                            .map(movementId -> {
-                                OperationAcceptedResponse response = new OperationAcceptedResponse();
-                                response.setOperationId(movementId);
-                                response.setStatus("ACCEPTED");
-                                return response;
-                            });
+                    // 4. Procesar atómicamente y registrar movimiento
+                    return atomic.decrementAvailableBalance(cardId, amount)
+                            .flatMap(updated -> updated
+                                    ? recordMovement(cardId, "CONSUMPTION", amount, request)
+                                    : Mono.error(new InsufficientCreditException(
+                                    "Amount exceeds available credit line")));
+                })
+                .map(movementId -> {
+                    OperationAcceptedResponse response = new OperationAcceptedResponse();
+                    response.setOperationId(movementId);
+                    response.setStatus("ACCEPTED");
+                    return response;
                 });
     }
 
@@ -1899,7 +1908,9 @@ components:
       type: object
       required: [amount, currency, merchant]
       properties:
-        amount: { type: string, pattern: '^[0-9]+(\.[0-9]{1,2})?$' }
+        # El lookahead negativo (?!0+(\.0+)?$) evita que "0", "0.0" o "0.00" pasen la validación,
+        # forzando al framework a devolver un 400 Bad Request (Escenario 13).
+        amount: { type: string, pattern: '^(?!0+(\.0+)?$)[0-9]+(\.[0-9]{1,2})?$' }
         currency: { type: string, pattern: '^[A-Z]{3}$' }
         merchant: { type: string }
     CardResponse:

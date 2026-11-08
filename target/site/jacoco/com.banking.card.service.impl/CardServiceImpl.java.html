@@ -100,194 +100,190 @@ public class CardServiceImpl implements CardService {
     private Mono&lt;CardResponse&gt; createCreditCard(CreditCardCreateRequest credit) {
 <span class="fc" id="L101">        BigDecimal limit = new BigDecimal(credit.getCreditLimit());</span>
 <span class="pc bpc" id="L102" title="1 of 2 branches missed.">        if (limit.signum() &lt;= 0) {</span>
-            // Escenario: creditLimit = &quot;0.00&quot; -&gt; 422 INVALID_CARD_OPERATION
-<span class="nc" id="L104">            return Mono.error(new InvalidCardTypeException(</span>
+<span class="nc" id="L103">            return Mono.error(new InvalidCardTypeException(</span>
                     &quot;creditLimit must be greater than 0 for CREDIT cards&quot;));
         }
-<span class="fc" id="L107">        return customerClient.customerExists(credit.getCustomerId())</span>
-<span class="fc" id="L108">                .filter(Boolean::booleanValue)</span>
-<span class="fc" id="L109">                .switchIfEmpty(Mono.error(new AccountValidationException(&quot;Customer does not exist&quot;)))</span>
-<span class="fc" id="L110">                .then(duplicateCardCheck(credit.getCustomerId(), TYPE_CREDIT))</span>
-<span class="fc" id="L111">                .then(Mono.defer(() -&gt; {</span>
-<span class="fc" id="L112">                    CardDocument card = CardDocument.builder()</span>
-<span class="fc" id="L113">                            .id(UUID.randomUUID())</span>
-<span class="fc" id="L114">                            .customerId(credit.getCustomerId())</span>
-<span class="fc" id="L115">                            .type(TYPE_CREDIT)</span>
-<span class="fc" id="L116">                            .status(STATUS_ACTIVE)</span>
-<span class="fc" id="L117">                            .maskedPan(generateMaskedPan())</span>
-<span class="fc" id="L118">                            .creditLimit(limit)</span>
-<span class="fc" id="L119">                            .availableBalance(limit)</span>
-<span class="fc" id="L120">                            .currency(DEFAULT_CURRENCY)</span>
-<span class="fc" id="L121">                            .expirationDate(LocalDate.now(java.time.ZoneOffset.UTC).plusYears(4))</span>
-<span class="fc" id="L122">                            .build();</span>
-<span class="fc" id="L123">                    return cardRepository.save(card)</span>
-<span class="fc" id="L124">                            .flatMap(saved -&gt; eventProducer.cardIssued(saved).thenReturn(saved))</span>
-<span class="fc" id="L125">                            .map(mapper::toResponse);</span>
+<span class="fc" id="L106">        return customerClient.customerExists(credit.getCustomerId())</span>
+<span class="fc" id="L107">                .filter(Boolean::booleanValue)</span>
+<span class="fc" id="L108">                .switchIfEmpty(Mono.error(new AccountValidationException(&quot;Customer does not exist&quot;)))</span>
+<span class="fc" id="L109">                .then(duplicateCardCheck(credit.getCustomerId(), TYPE_CREDIT))</span>
+<span class="fc" id="L110">                .then(Mono.defer(() -&gt; {</span>
+<span class="fc" id="L111">                    CardDocument card = CardDocument.builder()</span>
+<span class="fc" id="L112">                            .id(UUID.randomUUID())</span>
+<span class="fc" id="L113">                            .customerId(credit.getCustomerId())</span>
+<span class="fc" id="L114">                            .type(TYPE_CREDIT)</span>
+<span class="fc" id="L115">                            .status(STATUS_ACTIVE)</span>
+<span class="fc" id="L116">                            .maskedPan(generateMaskedPan())</span>
+<span class="fc" id="L117">                            .creditLimit(limit)</span>
+<span class="fc" id="L118">                            .availableBalance(limit)</span>
+<span class="fc" id="L119">                            .currency(DEFAULT_CURRENCY)</span>
+<span class="fc" id="L120">                            .expirationDate(LocalDate.now(java.time.ZoneOffset.UTC).plusYears(4))</span>
+<span class="fc" id="L121">                            .build();</span>
+<span class="fc" id="L122">                    return cardRepository.save(card)</span>
+<span class="fc" id="L123">                            .flatMap(saved -&gt; eventProducer.cardIssued(saved).thenReturn(saved))</span>
+<span class="fc" id="L124">                            .map(mapper::toResponse);</span>
                 }));
     }
 
     private Mono&lt;CardResponse&gt; createDebitCard(DebitCardCreateRequest debit) {
-<span class="fc" id="L130">        return customerClient.customerExists(debit.getCustomerId())</span>
-<span class="fc" id="L131">                .filter(Boolean::booleanValue)</span>
-<span class="fc" id="L132">                .switchIfEmpty(Mono.error(new AccountValidationException(&quot;Customer does not exist&quot;)))</span>
-<span class="fc" id="L133">                .then(accountClient.accountActive(debit.getLinkedAccountId()))</span>
-<span class="fc" id="L134">                .filter(Boolean::booleanValue)</span>
-<span class="fc" id="L135">                .switchIfEmpty(Mono.error(new AccountValidationException(</span>
+<span class="fc" id="L129">        return customerClient.customerExists(debit.getCustomerId())</span>
+<span class="fc" id="L130">                .filter(Boolean::booleanValue)</span>
+<span class="fc" id="L131">                .switchIfEmpty(Mono.error(new AccountValidationException(&quot;Customer does not exist&quot;)))</span>
+<span class="fc" id="L132">                .then(accountClient.accountActive(debit.getLinkedAccountId()))</span>
+<span class="fc" id="L133">                .filter(Boolean::booleanValue)</span>
+<span class="fc" id="L134">                .switchIfEmpty(Mono.error(new AccountValidationException(</span>
                         &quot;linkedAccountId does not exist or is not ACTIVE&quot;)))
-<span class="fc" id="L137">                .then(Mono.defer(() -&gt; {</span>
-<span class="nc" id="L138">                    CardDocument card = CardDocument.builder()</span>
-<span class="nc" id="L139">                            .id(UUID.randomUUID())</span>
-<span class="nc" id="L140">                            .customerId(debit.getCustomerId())</span>
-<span class="nc" id="L141">                            .type(TYPE_DEBIT)</span>
-<span class="nc" id="L142">                            .status(STATUS_ACTIVE)</span>
-<span class="nc" id="L143">                            .maskedPan(generateMaskedPan())</span>
-<span class="nc" id="L144">                            .linkedAccountId(debit.getLinkedAccountId())</span>
-<span class="nc" id="L145">                            .currency(DEFAULT_CURRENCY)</span>
-<span class="nc" id="L146">                            .expirationDate(LocalDate.now(java.time.ZoneOffset.UTC).plusYears(4))</span>
-<span class="nc" id="L147">                            .build();</span>
-<span class="nc" id="L148">                    return cardRepository.save(card)</span>
-<span class="nc" id="L149">                            .flatMap(saved -&gt; eventProducer.cardIssued(saved).thenReturn(saved))</span>
-<span class="nc" id="L150">                            .map(mapper::toResponse);</span>
+<span class="fc" id="L136">                .then(Mono.defer(() -&gt; {</span>
+<span class="nc" id="L137">                    CardDocument card = CardDocument.builder()</span>
+<span class="nc" id="L138">                            .id(UUID.randomUUID())</span>
+<span class="nc" id="L139">                            .customerId(debit.getCustomerId())</span>
+<span class="nc" id="L140">                            .type(TYPE_DEBIT)</span>
+<span class="nc" id="L141">                            .status(STATUS_ACTIVE)</span>
+<span class="nc" id="L142">                            .maskedPan(generateMaskedPan())</span>
+<span class="nc" id="L143">                            .linkedAccountId(debit.getLinkedAccountId())</span>
+<span class="nc" id="L144">                            .currency(DEFAULT_CURRENCY)</span>
+<span class="nc" id="L145">                            .expirationDate(LocalDate.now(java.time.ZoneOffset.UTC).plusYears(4))</span>
+<span class="nc" id="L146">                            .build();</span>
+<span class="nc" id="L147">                    return cardRepository.save(card)</span>
+<span class="nc" id="L148">                            .flatMap(saved -&gt; eventProducer.cardIssued(saved).thenReturn(saved))</span>
+<span class="nc" id="L149">                            .map(mapper::toResponse);</span>
                 }));
     }
 
     private Mono&lt;Void&gt; duplicateCardCheck(UUID customerId, String type) {
-<span class="fc" id="L155">        return cardRepository.existsByCustomerIdAndTypeAndStatus(customerId, type, STATUS_ACTIVE)</span>
-<span class="pc bpc" id="L156" title="1 of 2 branches missed.">                .flatMap(exists -&gt; exists</span>
-<span class="nc" id="L157">                        ? Mono.error(new DuplicateCardException(&quot;Customer already has an ACTIVE credit card&quot;))</span>
-<span class="fc" id="L158">                        : Mono.&lt;Void&gt;empty());</span>
+<span class="fc" id="L154">        return cardRepository.existsByCustomerIdAndTypeAndStatus(customerId, type, STATUS_ACTIVE)</span>
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">                .flatMap(exists -&gt; exists</span>
+<span class="nc" id="L156">                        ? Mono.error(new DuplicateCardException(&quot;Customer already has an ACTIVE credit card&quot;))</span>
+<span class="fc" id="L157">                        : Mono.&lt;Void&gt;empty());</span>
     }
 
     private String generateMaskedPan() {
-<span class="fc" id="L162">        String last4 = String.format(&quot;%04d&quot;, (int) (Math.random() * 10000));</span>
-<span class="fc" id="L163">        return &quot;**** **** **** &quot; + last4;</span>
+<span class="fc" id="L161">        String last4 = String.format(&quot;%04d&quot;, (int) (Math.random() * 10000));</span>
+<span class="fc" id="L162">        return &quot;**** **** **** &quot; + last4;</span>
     }
 
     @Override
     public Mono&lt;CardResponse&gt; findCardById(UUID cardId) {
-<span class="nc" id="L168">        return getActiveCard(cardId).map(mapper::toResponse);</span>
+<span class="nc" id="L167">        return getActiveCard(cardId).map(mapper::toResponse);</span>
     }
 
     @Override
     public Mono&lt;CardResponse&gt; updateCard(UUID cardId, CardUpdateRequest request, UUID transactionId) {
-<span class="fc" id="L173">        return getActiveCard(cardId)</span>
-<span class="fc" id="L174">                .flatMap(card -&gt; {</span>
-<span class="pc bpc" id="L175" title="1 of 2 branches missed.">                    if (request.getStatus() != null) {</span>
-<span class="fc" id="L176">                        String target = request.getStatus().getValue();</span>
-<span class="pc bpc" id="L177" title="1 of 2 branches missed.">                        if (STATUS_CANCELLED.equals(target)) {</span>
-<span class="nc" id="L178">                            return Mono.error(new InvalidCardStateException(</span>
+<span class="fc" id="L172">        return getActiveCard(cardId)</span>
+<span class="fc" id="L173">                .flatMap(card -&gt; {</span>
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">                    if (request.getStatus() != null) {</span>
+<span class="fc" id="L175">                        String target = request.getStatus().getValue();</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">                        if (STATUS_CANCELLED.equals(target)) {</span>
+<span class="nc" id="L177">                            return Mono.error(new InvalidCardStateException(</span>
                                     &quot;Use DELETE for definitive cancellation&quot;));
                         }
-<span class="fc" id="L181">                        card.setStatus(target);</span>
+<span class="fc" id="L180">                        card.setStatus(target);</span>
                     }
-<span class="fc" id="L183">                    return cardRepository.save(card)</span>
-<span class="fc" id="L184">                            .flatMap(saved -&gt; eventProducer.cardUpdated(saved).thenReturn(saved))</span>
-<span class="fc" id="L185">                            .map(mapper::toResponse);</span>
+<span class="fc" id="L182">                    return cardRepository.save(card)</span>
+<span class="fc" id="L183">                            .flatMap(saved -&gt; eventProducer.cardUpdated(saved).thenReturn(saved))</span>
+<span class="fc" id="L184">                            .map(mapper::toResponse);</span>
                 });
     }
 
     @Override
     public Mono&lt;Void&gt; deactivateCard(UUID cardId, UUID transactionId) {
-<span class="fc" id="L191">        return getActiveCard(cardId)</span>
-<span class="fc" id="L192">                .flatMap(card -&gt; {</span>
-<span class="fc" id="L193">                    card.setStatus(STATUS_CANCELLED);</span>
-<span class="fc" id="L194">                    return cardRepository.save(card)</span>
-<span class="fc" id="L195">                            .flatMap(saved -&gt; eventProducer.cardCancelled(saved).then());</span>
+<span class="fc" id="L190">        return getActiveCard(cardId)</span>
+<span class="fc" id="L191">                .flatMap(card -&gt; {</span>
+<span class="fc" id="L192">                    card.setStatus(STATUS_CANCELLED);</span>
+<span class="fc" id="L193">                    return cardRepository.save(card)</span>
+<span class="fc" id="L194">                            .flatMap(saved -&gt; eventProducer.cardCancelled(saved).then());</span>
                 });
     }
 
     @Override
     public Mono&lt;OperationAcceptedResponse&gt; createConsumption(UUID cardId, ConsumptionRequest request, UUID transactionId) {
-<span class="fc" id="L201">        BigDecimal amount = new BigDecimal(request.getAmount());</span>
-<span class="fc" id="L202">        return getActiveCard(cardId)</span>
-<span class="fc" id="L203">                .flatMap(card -&gt; {</span>
+<span class="fc" id="L200">        BigDecimal amount = new BigDecimal(request.getAmount());</span>
+<span class="fc" id="L201">        return getActiveCard(cardId)</span>
+<span class="fc" id="L202">                .flatMap(card -&gt; {</span>
+                    // 1. Validar TIPO: Si es débito, rechazar rápido con 422
 <span class="fc bfc" id="L204" title="All 2 branches covered.">                    if (!TYPE_CREDIT.equals(card.getType())) {</span>
 <span class="fc" id="L205">                        return Mono.error(new InvalidCardTypeException(</span>
                                 &quot;Consumptions apply only to CREDIT cards&quot;));
                     }
-<span class="pc bpc" id="L208" title="1 of 2 branches missed.">                    if (!STATUS_ACTIVE.equals(card.getStatus())) {</span>
-<span class="nc" id="L209">                        return Mono.error(new InvalidCardStateException(&quot;Card is not ACTIVE&quot;));</span>
+                    // 2. Validar ESTADO: Si no está activa, rechazar con 422
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">                    if (!STATUS_ACTIVE.equals(card.getStatus())) {</span>
+<span class="nc" id="L210">                        return Mono.error(new InvalidCardStateException(&quot;Card is not ACTIVE&quot;));</span>
                     }
-<span class="fc bfc" id="L211" title="All 2 branches covered.">                    if (amount.compareTo(card.getAvailableBalance()) &gt; 0) {</span>
-<span class="fc" id="L212">                        return Mono.error(new InsufficientCreditException(</span>
+                    // 3. Validar SALDO: Si el monto es mayor, rechazar con 422
+<span class="pc bpc" id="L213" title="1 of 4 branches missed.">                    if (card.getAvailableBalance() == null || amount.compareTo(card.getAvailableBalance()) &gt; 0) {</span>
+<span class="fc" id="L214">                        return Mono.error(new InsufficientCreditException(</span>
                                 &quot;Amount exceeds available credit line&quot;));
                     }
-<span class="fc" id="L215">                    return cardRepository.findById(card.getId())</span>
-<span class="fc" id="L216">                            .flatMap(fresh -&gt; {</span>
-<span class="pc bpc" id="L217" title="1 of 2 branches missed.">                                if (amount.compareTo(fresh.getAvailableBalance()) &gt; 0) {</span>
-<span class="nc" id="L218">                                    return Mono.error(new InsufficientCreditException(</span>
-                                            &quot;Amount exceeds available credit line&quot;));
-                                }
-<span class="fc" id="L221">                                return atomic.decrementAvailableBalance(card.getId(), amount)</span>
-<span class="pc bpc" id="L222" title="1 of 2 branches missed.">                                        .flatMap(updated -&gt; updated</span>
-<span class="fc" id="L223">                                                ? recordMovement(card.getId(), &quot;CONSUMPTION&quot;, amount, request)</span>
-<span class="nc" id="L224">                                                : Mono.error(new InsufficientCreditException(</span>
-                                                &quot;Amount exceeds available credit line&quot;)));
-                            })
-<span class="fc" id="L227">                            .map(movementId -&gt; {</span>
-<span class="fc" id="L228">                                OperationAcceptedResponse response = new OperationAcceptedResponse();</span>
-<span class="fc" id="L229">                                response.setOperationId(movementId);</span>
-<span class="fc" id="L230">                                response.setStatus(&quot;ACCEPTED&quot;);</span>
-<span class="fc" id="L231">                                return response;</span>
-                            });
+                    // 4. Procesar atómicamente y registrar movimiento
+<span class="fc" id="L218">                    return atomic.decrementAvailableBalance(cardId, amount)</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">                            .flatMap(updated -&gt; updated</span>
+<span class="fc" id="L220">                                    ? recordMovement(cardId, &quot;CONSUMPTION&quot;, amount, request)</span>
+<span class="nc" id="L221">                                    : Mono.error(new InsufficientCreditException(</span>
+                                    &quot;Amount exceeds available credit line&quot;)));
+                })
+<span class="fc" id="L224">                .map(movementId -&gt; {</span>
+<span class="fc" id="L225">                    OperationAcceptedResponse response = new OperationAcceptedResponse();</span>
+<span class="fc" id="L226">                    response.setOperationId(movementId);</span>
+<span class="fc" id="L227">                    response.setStatus(&quot;ACCEPTED&quot;);</span>
+<span class="fc" id="L228">                    return response;</span>
                 });
     }
 
     private Mono&lt;UUID&gt; recordMovement(UUID cardId, String type, BigDecimal amount, ConsumptionRequest request) {
-<span class="fc" id="L237">        MovementDocument movement = MovementDocument.builder()</span>
-<span class="fc" id="L238">                .id(UUID.randomUUID())</span>
-<span class="fc" id="L239">                .cardId(cardId)</span>
-<span class="fc" id="L240">                .type(type)</span>
-<span class="fc" id="L241">                .amount(amount)</span>
-<span class="fc" id="L242">                .currency(request.getCurrency())</span>
-<span class="fc" id="L243">                .merchant(request.getMerchant())</span>
-<span class="fc" id="L244">                .timestamp(Instant.now())</span>
-<span class="fc" id="L245">                .build();</span>
-<span class="fc" id="L246">        return movementRepository.save(movement)</span>
-<span class="fc" id="L247">                .map(saved -&gt; {</span>
-<span class="fc" id="L248">                    eventProducer.movementRegistered(saved).subscribe();</span>
-<span class="fc" id="L249">                    return saved.getId();</span>
+<span class="fc" id="L233">        MovementDocument movement = MovementDocument.builder()</span>
+<span class="fc" id="L234">                .id(UUID.randomUUID())</span>
+<span class="fc" id="L235">                .cardId(cardId)</span>
+<span class="fc" id="L236">                .type(type)</span>
+<span class="fc" id="L237">                .amount(amount)</span>
+<span class="fc" id="L238">                .currency(request.getCurrency())</span>
+<span class="fc" id="L239">                .merchant(request.getMerchant())</span>
+<span class="fc" id="L240">                .timestamp(Instant.now())</span>
+<span class="fc" id="L241">                .build();</span>
+<span class="fc" id="L242">        return movementRepository.save(movement)</span>
+<span class="fc" id="L243">                .map(saved -&gt; {</span>
+<span class="fc" id="L244">                    eventProducer.movementRegistered(saved).subscribe();</span>
+<span class="fc" id="L245">                    return saved.getId();</span>
                 });
     }
 
     @Override
     public Mono&lt;BalanceResponse&gt; findCardBalance(UUID cardId) {
-<span class="nc" id="L255">        return getActiveCard(cardId)</span>
-<span class="nc" id="L256">                .map(card -&gt; {</span>
-<span class="nc" id="L257">                    BalanceResponse response = new BalanceResponse();</span>
-<span class="nc" id="L258">                    response.setCardId(card.getId());</span>
-<span class="nc bnc" id="L259" title="All 2 branches missed.">                    if (TYPE_CREDIT.equals(card.getType())) {</span>
-<span class="nc" id="L260">                        response.setAvailableBalance(card.getAvailableBalance().toPlainString());</span>
+<span class="nc" id="L251">        return getActiveCard(cardId)</span>
+<span class="nc" id="L252">                .map(card -&gt; {</span>
+<span class="nc" id="L253">                    BalanceResponse response = new BalanceResponse();</span>
+<span class="nc" id="L254">                    response.setCardId(card.getId());</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">                    if (TYPE_CREDIT.equals(card.getType())) {</span>
+<span class="nc" id="L256">                        response.setAvailableBalance(card.getAvailableBalance().toPlainString());</span>
                     } else {
-<span class="nc" id="L262">                        response.setAvailableBalance(BigDecimal.ZERO.toPlainString());</span>
+<span class="nc" id="L258">                        response.setAvailableBalance(BigDecimal.ZERO.toPlainString());</span>
                     }
-<span class="nc" id="L264">                    response.setCurrency(card.getCurrency());</span>
-<span class="nc" id="L265">                    return response;</span>
+<span class="nc" id="L260">                    response.setCurrency(card.getCurrency());</span>
+<span class="nc" id="L261">                    return response;</span>
                 });
     }
 
     @Override
     public Mono&lt;MovementListResponse&gt; findLastMovements(UUID cardId) {
-<span class="nc" id="L271">        return getActiveCard(cardId)</span>
-<span class="nc" id="L272">                .thenMany(movementRepository.findTop10ByCardIdOrderByTimestampDesc(cardId))</span>
-<span class="nc" id="L273">                .collectList()</span>
-<span class="nc" id="L274">                .map(mapper::toMovementList);</span>
+<span class="nc" id="L267">        return getActiveCard(cardId)</span>
+<span class="nc" id="L268">                .thenMany(movementRepository.findTop10ByCardIdOrderByTimestampDesc(cardId))</span>
+<span class="nc" id="L269">                .collectList()</span>
+<span class="nc" id="L270">                .map(mapper::toMovementList);</span>
     }
 
     @Override
     public Mono&lt;EligibilityResponse&gt; checkCardEligibility(UUID customerId) {
-<span class="fc" id="L279">        return cardRepository.existsByCustomerIdAndTypeAndStatus(customerId, TYPE_CREDIT, STATUS_ACTIVE)</span>
-<span class="fc" id="L280">                .map(hasCard -&gt; {</span>
-<span class="fc" id="L281">                    EligibilityResponse response = new EligibilityResponse();</span>
-<span class="fc" id="L282">                    response.setCustomerId(customerId);</span>
-<span class="fc" id="L283">                    response.setHasCreditCard(hasCard);</span>
-<span class="fc" id="L284">                    return response;</span>
+<span class="fc" id="L275">        return cardRepository.existsByCustomerIdAndTypeAndStatus(customerId, TYPE_CREDIT, STATUS_ACTIVE)</span>
+<span class="fc" id="L276">                .map(hasCard -&gt; {</span>
+<span class="fc" id="L277">                    EligibilityResponse response = new EligibilityResponse();</span>
+<span class="fc" id="L278">                    response.setCustomerId(customerId);</span>
+<span class="fc" id="L279">                    response.setHasCreditCard(hasCard);</span>
+<span class="fc" id="L280">                    return response;</span>
                 });
     }
 
     private Mono&lt;CardDocument&gt; getActiveCard(UUID cardId) {
-<span class="fc" id="L289">        return cardRepository.findByIdAndStatusNot(cardId, STATUS_CANCELLED)</span>
-<span class="fc" id="L290">                .switchIfEmpty(Mono.error(new CardNotFoundException(&quot;Card not found: &quot; + cardId)));</span>
+<span class="fc" id="L285">        return cardRepository.findByIdAndStatusNot(cardId, STATUS_CANCELLED)</span>
+<span class="fc" id="L286">                .switchIfEmpty(Mono.error(new CardNotFoundException(&quot;Card not found: &quot; + cardId)));</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

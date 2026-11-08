@@ -100,7 +100,6 @@ public class CardServiceImpl implements CardService {
     private Mono<CardResponse> createCreditCard(CreditCardCreateRequest credit) {
         BigDecimal limit = new BigDecimal(credit.getCreditLimit());
         if (limit.signum() <= 0) {
-            // Escenario: creditLimit = "0.00" -> 422 INVALID_CARD_OPERATION
             return Mono.error(new InvalidCardTypeException(
                     "creditLimit must be greater than 0 for CREDIT cards"));
         }
@@ -201,35 +200,32 @@ public class CardServiceImpl implements CardService {
         BigDecimal amount = new BigDecimal(request.getAmount());
         return getActiveCard(cardId)
                 .flatMap(card -> {
+                    // 1. Validar TIPO: Si es débito, rechazar rápido con 422
                     if (!TYPE_CREDIT.equals(card.getType())) {
                         return Mono.error(new InvalidCardTypeException(
                                 "Consumptions apply only to CREDIT cards"));
                     }
+                    // 2. Validar ESTADO: Si no está activa, rechazar con 422
                     if (!STATUS_ACTIVE.equals(card.getStatus())) {
                         return Mono.error(new InvalidCardStateException("Card is not ACTIVE"));
                     }
-                    if (amount.compareTo(card.getAvailableBalance()) > 0) {
+                    // 3. Validar SALDO: Si el monto es mayor, rechazar con 422
+                    if (card.getAvailableBalance() == null || amount.compareTo(card.getAvailableBalance()) > 0) {
                         return Mono.error(new InsufficientCreditException(
                                 "Amount exceeds available credit line"));
                     }
-                    return cardRepository.findById(card.getId())
-                            .flatMap(fresh -> {
-                                if (amount.compareTo(fresh.getAvailableBalance()) > 0) {
-                                    return Mono.error(new InsufficientCreditException(
-                                            "Amount exceeds available credit line"));
-                                }
-                                return atomic.decrementAvailableBalance(card.getId(), amount)
-                                        .flatMap(updated -> updated
-                                                ? recordMovement(card.getId(), "CONSUMPTION", amount, request)
-                                                : Mono.error(new InsufficientCreditException(
-                                                "Amount exceeds available credit line")));
-                            })
-                            .map(movementId -> {
-                                OperationAcceptedResponse response = new OperationAcceptedResponse();
-                                response.setOperationId(movementId);
-                                response.setStatus("ACCEPTED");
-                                return response;
-                            });
+                    // 4. Procesar atómicamente y registrar movimiento
+                    return atomic.decrementAvailableBalance(cardId, amount)
+                            .flatMap(updated -> updated
+                                    ? recordMovement(cardId, "CONSUMPTION", amount, request)
+                                    : Mono.error(new InsufficientCreditException(
+                                    "Amount exceeds available credit line")));
+                })
+                .map(movementId -> {
+                    OperationAcceptedResponse response = new OperationAcceptedResponse();
+                    response.setOperationId(movementId);
+                    response.setStatus("ACCEPTED");
+                    return response;
                 });
     }
 

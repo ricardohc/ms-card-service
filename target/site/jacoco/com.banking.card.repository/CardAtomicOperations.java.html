@@ -2,6 +2,8 @@
 
 import com.banking.card.document.CardDocument;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.bson.types.Decimal128;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -13,6 +15,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /** Mongo-specific atomic operations that cannot be expressed as derived methods. */
+<span class="fc" id="L18">@Slf4j</span>
 @Repository
 @RequiredArgsConstructor
 public class CardAtomicOperations {
@@ -22,13 +25,24 @@ public class CardAtomicOperations {
     /** Atomically decrements availableBalance only when the current balance covers the amount.
      *  Returns true when the decrement happened, false otherwise. */
     public Mono&lt;Boolean&gt; decrementAvailableBalance(UUID cardId, BigDecimal amount) {
-<span class="nc" id="L25">        Query query = new Query(new Criteria().andOperator(</span>
-<span class="nc" id="L26">                Criteria.where(&quot;_id&quot;).is(cardId),</span>
-<span class="nc" id="L27">                Criteria.where(&quot;availableBalance&quot;).gte(amount)));</span>
-<span class="nc" id="L28">        Update update = new Update().inc(&quot;availableBalance&quot;, amount.negate());</span>
-<span class="nc" id="L29">        return mongoTemplate.findAndModify(query, update, CardDocument.class)</span>
-<span class="nc" id="L30">                .map(updated -&gt; true)</span>
-<span class="nc" id="L31">                .defaultIfEmpty(false);</span>
+<span class="nc" id="L28">        Decimal128 delta = new Decimal128(amount.negate());</span>
+<span class="nc" id="L29">        Decimal128 min = new Decimal128(amount);</span>
+
+<span class="nc" id="L31">        Query query = new Query(new Criteria().andOperator(</span>
+<span class="nc" id="L32">                Criteria.where(&quot;_id&quot;).is(cardId),</span>
+<span class="nc" id="L33">                Criteria.where(&quot;availableBalance&quot;).gte(min)));</span>
+
+<span class="nc" id="L35">        Update update = new Update().inc(&quot;availableBalance&quot;, delta);</span>
+
+<span class="nc" id="L37">        return mongoTemplate.findAndModify(query, update, CardDocument.class)</span>
+<span class="nc" id="L38">                .map(updated -&gt; {</span>
+<span class="nc" id="L39">                    log.debug(&quot;availableBalance decremented by {} for card {}&quot;, amount, cardId);</span>
+<span class="nc" id="L40">                    return true;</span>
+                })
+<span class="nc" id="L42">                .defaultIfEmpty(false)</span>
+<span class="nc" id="L43">                .doOnError(ex -&gt; log.error(</span>
+                        &quot;Atomic decrement failed for card {} amount {}: {}&quot;,
+<span class="nc" id="L45">                        cardId, amount, ex.getMessage()));</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
