@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: Card Service API
+  description: Gestión de tarjetas de crédito y débito.
+  version: 1.0.0
+
+tags:
+  - name: Card
+    description: Operaciones de gestión de tarjetas de crédito y débito
+
+security:
+  - BearerAuth: []
+paths:
+  /api/v1/cards:
+    get:
+      tags:
+        - Card
+      summary: Listar tarjetas
+      operationId: findAllCards
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+      responses:
+        '200':
+          description: Lista paginada
+          content: { application/json: { schema: { $ref: '#/components/schemas/CardPage' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    post:
+      tags:
+        - Card
+      summary: Emitir tarjeta (crédito o débito)
+      description: |
+        Idempotente mediante X-Transaction-ID. Usa oneOf para diferenciar requisitos de crédito y débito.
+        Reglas de validación:
+        - Para tarjetas de CRÉDITO: creditLimit debe ser > 0.
+        - Para tarjetas de DÉBITO: linkedAccountId debe existir y estar ACTIVE.
+        - El cliente debe existir (validado contra Customer Service).
+      operationId: createCard
+      parameters:
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+        - $ref: '#/components/parameters/TransactionIdHeader'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CardCreateRequest' } } }
+      responses:
+        '201':
+          description: Tarjeta emitida
+          content: { application/json: { schema: { $ref: '#/components/schemas/CardResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+  /api/v1/cards/{cardId}:
+    get:
+      tags:
+        - Card
+      summary: Obtener tarjeta por ID
+      operationId: findCardById
+      parameters:
+        - $ref: '#/components/parameters/CardIdPath'
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+      responses:
+        '200':
+          description: Detalle de tarjeta
+          content: { application/json: { schema: { $ref: '#/components/schemas/CardResponse' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    patch:
+      tags:
+        - Card
+      summary: Actualizar tarjeta (parcial)
+      description: Permite bloqueo temporal (status BLOCKED) o actualización de otros campos.
+      operationId: updateCard
+      parameters:
+        - $ref: '#/components/parameters/CardIdPath'
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+        - $ref: '#/components/parameters/TransactionIdHeader'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CardUpdateRequest' } } }
+      responses:
+        '200':
+          description: Tarjeta actualizada
+          content: { application/json: { schema: { $ref: '#/components/schemas/CardResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+    delete:
+      tags:
+        - Card
+      summary: Cancelación definitiva de tarjeta (baja lógica)
+      description: Para bloqueo temporal usar PATCH con status BLOCKED. Esta operación marca la tarjeta como CANCELLED de forma irreversible.
+      operationId: deactivateCard
+      parameters:
+        - $ref: '#/components/parameters/CardIdPath'
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+        - $ref: '#/components/parameters/TransactionIdHeader'
+      responses:
+        '204': { description: Tarjeta cancelada definitivamente }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+  /api/v1/cards/{cardId}/consumptions:
+    post:
+      tags:
+        - Card
+      summary: Registrar consumo en tarjeta de crédito
+      description: |
+        Idempotente mediante X-Transaction-ID. Valida línea disponible antes de aceptar.
+        - Solo aplica para tarjetas de CRÉDITO y estado ACTIVE.
+        - Si el monto del consumo supera la línea disponible, se rechaza (422).
+        - El consumo reduce la línea disponible.
+      operationId: createConsumption
+      parameters:
+        - $ref: '#/components/parameters/CardIdPath'
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+        - $ref: '#/components/parameters/TransactionIdHeader'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ConsumptionRequest' } } }
+      responses:
+        '202':
+          description: Consumo aceptado
+          content: { application/json: { schema: { $ref: '#/components/schemas/OperationAcceptedResponse' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+  /api/v1/cards/{cardId}/balance:
+    get:
+      tags:
+        - Card
+      summary: Consultar saldo / línea disponible
+      operationId: findCardBalance
+      parameters:
+        - $ref: '#/components/parameters/CardIdPath'
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+      responses:
+        '200':
+          description: Saldo disponible
+          content: { application/json: { schema: { $ref: '#/components/schemas/BalanceResponse' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+  /api/v1/cards/{cardId}/last-movements:
+    get:
+      tags:
+        - Card
+      summary: Últimos 10 movimientos de la tarjeta
+      operationId: findLastMovements
+      parameters:
+        - $ref: '#/components/parameters/CardIdPath'
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+      responses:
+        '200':
+          description: Últimos movimientos
+          content: { application/json: { schema: { $ref: '#/components/schemas/MovementListResponse' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+  /api/v1/cards/eligibility:
+    get:
+      tags:
+        - Card
+      summary: Validar si el cliente tiene tarjeta de crédito
+      description: Devuelve true si el cliente tiene al menos una tarjeta de crédito activa. Usado para validar elegibilidad VIP/PYME.
+      operationId: checkCardEligibility
+      parameters:
+        - name: customerId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/CorrelationIdHeader'
+        - $ref: '#/components/parameters/ChannelIdHeader'
+      responses:
+        '200':
+          description: Resultado de elegibilidad
+          content: { application/json: { schema: { $ref: '#/components/schemas/EligibilityResponse' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+components:
+  securitySchemes:
+    BearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    PageParam: { name: page, in: query, schema: { type: integer, default: 0, minimum: 0 } }
+    SizeParam: { name: size, in: query, schema: { type: integer, default: 20, minimum: 1, maximum: 100 } }
+    CorrelationIdHeader: { name: X-Correlation-ID, in: header, required: true, schema: { type: string } }
+    ChannelIdHeader: { name: X-Channel-ID, in: header, required: true, schema: { type: string } }
+    TransactionIdHeader: { name: X-Transaction-ID, in: header, required: true, schema: { type: string, format: uuid } }
+    CardIdPath: { name: cardId, in: path, required: true, schema: { type: string, format: uuid } }
+  schemas:
+    CardType: { type: string, enum: [CREDIT, DEBIT] }
+    CardStatus: { type: string, enum: [ACTIVE, BLOCKED, EXPIRED, CANCELLED] }
+    CardCreateRequest:
+      oneOf:
+        - $ref: '#/components/schemas/CreditCardCreateRequest'
+        - $ref: '#/components/schemas/DebitCardCreateRequest'
+      discriminator:
+        propertyName: type
+        mapping:
+          CREDIT: '#/components/schemas/CreditCardCreateRequest'
+          DEBIT: '#/components/schemas/DebitCardCreateRequest'
+    CreditCardCreateRequest:
+      type: object
+      required: [customerId, type, creditLimit]
+      properties:
+        customerId: { type: string, format: uuid }
+        type: { type: string }
+        creditLimit: { type: string, pattern: '^[0-9]+(\.[0-9]{1,2})?$' }
+    DebitCardCreateRequest:
+      type: object
+      required: [customerId, type, linkedAccountId]
+      properties:
+        customerId: { type: string, format: uuid }
+        type: { type: string }
+        linkedAccountId: { type: string, format: uuid }
+    CardUpdateRequest:
+      type: object
+      properties:
+        status: { $ref: '#/components/schemas/CardStatus' }
+    ConsumptionRequest:
+      type: object
+      required: [amount, currency, merchant]
+      properties:
+        # Quitamos el lookahead negativo para que "0.00" llegue al código Java
+        # y podamos devolver el mensaje personalizado en inglés (400).
+        amount: { type: string, pattern: '^[0-9]+(\.[0-9]{1,2})?$' }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        merchant: { type: string }
+    CardResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/CardType' }
+        status: { $ref: '#/components/schemas/CardStatus' }
+        maskedPan: { type: string, example: "**** **** **** 1234" }
+        linkedAccountId: { type: string, format: uuid }
+        creditLimit: { type: string }
+        availableBalance: { type: string }
+        expirationDate: { type: string, format: date }
+    CardPage:
+      type: object
+      properties:
+        content: { type: array, items: { $ref: '#/components/schemas/CardResponse' } }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer }
+    BalanceResponse:
+      type: object
+      properties:
+        cardId: { type: string, format: uuid }
+        availableBalance: { type: string }
+        currency: { type: string }
+    MovementListResponse:
+      type: object
+      properties:
+        movements:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              amount: { type: string }
+              merchant: { type: string }
+              timestamp: { type: string, format: date-time }
+    EligibilityResponse:
+      type: object
+      properties:
+        customerId: { type: string, format: uuid }
+        hasCreditCard: { type: boolean }
+    OperationAcceptedResponse:
+      type: object
+      properties:
+        operationId: { type: string, format: uuid }
+        status: { type: string }
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+        correlationId: { type: string }
+        details: { type: array, items: { type: string } }
+  responses:
+    BadRequest:
+      description: Solicitud inválida
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Unauthorized:
+      description: No autenticado
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Forbidden:
+      description: No autorizado
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    NotFound:
+      description: No encontrado
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    Conflict:
+      description: Conflicto
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    UnprocessableEntity:
+      description: Entidad no procesable
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    InternalServerError:
+      description: Error interno
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
