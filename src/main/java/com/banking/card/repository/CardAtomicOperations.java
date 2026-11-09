@@ -14,7 +14,6 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-/** Mongo-specific atomic operations that cannot be expressed as derived methods. */
 @Slf4j
 @Repository
 @RequiredArgsConstructor
@@ -22,8 +21,6 @@ public class CardAtomicOperations {
 
     private final ReactiveMongoTemplate mongoTemplate;
 
-    /** Atomically decrements availableBalance only when the current balance covers the amount.
-     *  Returns true when the decrement happened, false otherwise. */
     public Mono<Boolean> decrementAvailableBalance(UUID cardId, BigDecimal amount) {
         Decimal128 delta = new Decimal128(amount.negate());
         Decimal128 min = new Decimal128(amount);

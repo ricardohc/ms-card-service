@@ -20,7 +20,6 @@ public class CustomerValidationClient {
     @Value("${external.services.customer.url:http://ms-customer-service}")
     private String customerServiceUrl;
 
-    /** Returns true when the customer exists in ms-customer-service. */
     public Mono<Boolean> customerExists(UUID customerId) {
         return webClientBuilder.build()
                 .get()

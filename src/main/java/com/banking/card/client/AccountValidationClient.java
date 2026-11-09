@@ -20,7 +20,6 @@ public class AccountValidationClient {
     @Value("${external.services.account.url:http://ms-account-service}")
     private String accountServiceUrl;
 
-    /** Returns true when the account exists and is ACTIVE. */
     public Mono<Boolean> accountActive(UUID accountId) {
         return webClientBuilder.build()
                 .get()
