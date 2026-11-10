@@ -31,13 +31,10 @@ public class CardDocument {
     @Indexed
     private UUID customerId;
 
-    /** CREDIT or DEBIT. */
     private String type;
 
-    /** ACTIVE, BLOCKED, EXPIRED, CANCELLED. */
     private String status;
 
-    /** Masked PAN only; full PAN is never stored. */
     private String maskedPan;
 
     private UUID linkedAccountId;

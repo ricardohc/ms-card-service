@@ -1,15 +1,10 @@
 package com.banking.card.controller;
 
 import com.banking.card.api.CardApi;
-import com.banking.card.dto.BalanceResponse;
 import com.banking.card.dto.CardCreateRequest;
 import com.banking.card.dto.CardPage;
 import com.banking.card.dto.CardResponse;
 import com.banking.card.dto.CardUpdateRequest;
-import com.banking.card.dto.ConsumptionRequest;
-import com.banking.card.dto.EligibilityResponse;
-import com.banking.card.dto.MovementListResponse;
-import com.banking.card.dto.OperationAcceptedResponse;
 import com.banking.card.service.CardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,7 +15,6 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-/** Thin adapter: generated CardApi -> CardService. No business logic here. */
 @RestController
 @RequiredArgsConstructor
 public class CardApiImpl implements CardApi {
@@ -68,39 +62,5 @@ public class CardApiImpl implements CardApi {
             UUID xTransactionID, ServerWebExchange exchange) {
         return cardService.deactivateCard(cardId, xTransactionID)
                 .thenReturn(ResponseEntity.<Void>noContent().build());
-    }
-
-    @Override
-    public Mono<ResponseEntity<OperationAcceptedResponse>> createConsumption(
-            UUID cardId, String xCorrelationID, String xChannelID,
-            UUID xTransactionID, Mono<ConsumptionRequest> consumptionRequest,
-            ServerWebExchange exchange) {
-        return consumptionRequest
-                .flatMap(request -> cardService.createConsumption(cardId, request, xTransactionID))
-                .map(response -> ResponseEntity.status(HttpStatus.ACCEPTED).body(response));
-    }
-
-    @Override
-    public Mono<ResponseEntity<BalanceResponse>> findCardBalance(
-            UUID cardId, String xCorrelationID, String xChannelID,
-            ServerWebExchange exchange) {
-        return cardService.findCardBalance(cardId)
-                .map(ResponseEntity::ok);
-    }
-
-    @Override
-    public Mono<ResponseEntity<MovementListResponse>> findLastMovements(
-            UUID cardId, String xCorrelationID, String xChannelID,
-            ServerWebExchange exchange) {
-        return cardService.findLastMovements(cardId)
-                .map(ResponseEntity::ok);
-    }
-
-    @Override
-    public Mono<ResponseEntity<EligibilityResponse>> checkCardEligibility(
-            UUID customerId, String xCorrelationID, String xChannelID,
-            ServerWebExchange exchange) {
-        return cardService.checkCardEligibility(customerId)
-                .map(ResponseEntity::ok);
     }
 }

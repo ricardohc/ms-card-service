@@ -116,93 +116,6 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalServerError' }
-  /api/v1/cards/{cardId}/consumptions:
-    post:
-      tags:
-        - Card
-      summary: Registrar consumo en tarjeta de crédito
-      description: |
-        Idempotente mediante X-Transaction-ID. Valida línea disponible antes de aceptar.
-        - Solo aplica para tarjetas de CRÉDITO y estado ACTIVE.
-        - Si el monto del consumo supera la línea disponible, se rechaza (422).
-        - El consumo reduce la línea disponible.
-      operationId: createConsumption
-      parameters:
-        - $ref: '#/components/parameters/CardIdPath'
-        - $ref: '#/components/parameters/CorrelationIdHeader'
-        - $ref: '#/components/parameters/ChannelIdHeader'
-        - $ref: '#/components/parameters/TransactionIdHeader'
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: '#/components/schemas/ConsumptionRequest' } } }
-      responses:
-        '202':
-          description: Consumo aceptado
-          content: { application/json: { schema: { $ref: '#/components/schemas/OperationAcceptedResponse' } } }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-  /api/v1/cards/{cardId}/balance:
-    get:
-      tags:
-        - Card
-      summary: Consultar saldo / línea disponible
-      operationId: findCardBalance
-      parameters:
-        - $ref: '#/components/parameters/CardIdPath'
-        - $ref: '#/components/parameters/CorrelationIdHeader'
-        - $ref: '#/components/parameters/ChannelIdHeader'
-      responses:
-        '200':
-          description: Saldo disponible
-          content: { application/json: { schema: { $ref: '#/components/schemas/BalanceResponse' } } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-  /api/v1/cards/{cardId}/last-movements:
-    get:
-      tags:
-        - Card
-      summary: Últimos 10 movimientos de la tarjeta
-      operationId: findLastMovements
-      parameters:
-        - $ref: '#/components/parameters/CardIdPath'
-        - $ref: '#/components/parameters/CorrelationIdHeader'
-        - $ref: '#/components/parameters/ChannelIdHeader'
-      responses:
-        '200':
-          description: Últimos movimientos
-          content: { application/json: { schema: { $ref: '#/components/schemas/MovementListResponse' } } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
-  /api/v1/cards/eligibility:
-    get:
-      tags:
-        - Card
-      summary: Validar si el cliente tiene tarjeta de crédito
-      description: Devuelve true si el cliente tiene al menos una tarjeta de crédito activa. Usado para validar elegibilidad VIP/PYME.
-      operationId: checkCardEligibility
-      parameters:
-        - name: customerId
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - $ref: '#/components/parameters/CorrelationIdHeader'
-        - $ref: '#/components/parameters/ChannelIdHeader'
-      responses:
-        '200':
-          description: Resultado de elegibilidad
-          content: { application/json: { schema: { $ref: '#/components/schemas/EligibilityResponse' } } }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
 
 components:
   securitySchemes:
@@ -244,15 +157,6 @@ components:
       type: object
       properties:
         status: { $ref: '#/components/schemas/CardStatus' }
-    ConsumptionRequest:
-      type: object
-      required: [amount, currency, merchant]
-      properties:
-        # Quitamos el lookahead negativo para que "0.00" llegue al código Java
-        # y podamos devolver el mensaje personalizado en inglés (400).
-        amount: { type: string, pattern: '^[0-9]+(\.[0-9]{1,2})?$' }
-        currency: { type: string, pattern: '^[A-Z]{3}$' }
-        merchant: { type: string }
     CardResponse:
       type: object
       properties:
@@ -272,34 +176,6 @@ components:
         page: { type: integer }
         size: { type: integer }
         totalElements: { type: integer }
-    BalanceResponse:
-      type: object
-      properties:
-        cardId: { type: string, format: uuid }
-        availableBalance: { type: string }
-        currency: { type: string }
-    MovementListResponse:
-      type: object
-      properties:
-        movements:
-          type: array
-          items:
-            type: object
-            properties:
-              id: { type: string, format: uuid }
-              amount: { type: string }
-              merchant: { type: string }
-              timestamp: { type: string, format: date-time }
-    EligibilityResponse:
-      type: object
-      properties:
-        customerId: { type: string, format: uuid }
-        hasCreditCard: { type: boolean }
-    OperationAcceptedResponse:
-      type: object
-      properties:
-        operationId: { type: string, format: uuid }
-        status: { type: string }
     ErrorResponse:
       type: object
       properties:

@@ -1,6 +1,5 @@
 package com.banking.card.exception;
 
-/** Base exception carrying the HTTP status and error code of the contract. */
 public class DomainException extends RuntimeException {
 
     private final int status;
